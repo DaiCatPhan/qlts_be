@@ -39,6 +39,7 @@ import { chuyende } from 'src/entites/chuyende.entity';
 import { usermanager } from 'src/entites/usermanager.entity';
 import { lienhe } from 'src/entites/lienhe.entity';
 import { carrierPrefixes } from 'src/types/export.file';
+import { log } from 'console';
 
 @Injectable()
 export class DataService {
@@ -189,6 +190,7 @@ export class DataService {
       });
       const phoneArray = arrayLan.map((l) => l.SDT_KH);
       console.log('PhoneArray: ', phoneArray);
+      // PDC
 
       if (phoneArray.length != 0) {
         this.addCondition(query, 'kh.SDT IN (:...phoneArray)', {
@@ -1100,43 +1102,48 @@ export class DataService {
   }
 
   async getDataSegment(data: any) {
-    const query = this.segmentRepository.createQueryBuilder('pd');
+    const query = this.segmentRepository.createQueryBuilder('phanquyen');
 
     query
-      .leftJoinAndSelect('pd.chitietpq', 'chitietpq')
-      .leftJoinAndSelect('chitietpq.lienhe', 'lienhe')
-      .leftJoinAndSelect('lienhe.trangthai', 'trangthai')
-      .leftJoinAndSelect('pd.usermanager', 'usermanager')
+      .leftJoinAndSelect('phanquyen.chitietpq', 'chitietpq')
       .leftJoinAndSelect('chitietpq.khachhang', 'khachhang')
       .leftJoinAndSelect('khachhang.dulieukhachhang', 'dulieukhachhang')
-      .leftJoinAndSelect('khachhang.truong', 'truong');
+      .leftJoinAndSelect('khachhang.truong', 'truong')
+      .leftJoinAndSelect('phanquyen.usermanager', 'usermanager');
 
     if (data.MATRUONG) {
-      query.andWhere('pd.MATRUONG = :MATRUONG', {
+      query.andWhere('phanquyen.MATRUONG = :MATRUONG', {
         MATRUONG: data.MATRUONG,
       });
     }
-    // SDT quan ly
     if (data.SDT) {
-      query.andWhere('pd.SDT = :SDT', { SDT: data.SDT });
+      query.andWhere('phanquyen.SDT = :SDT', { SDT: data.SDT });
     }
 
     if (data?.MaPQ) {
-      query.andWhere('pd.MaPQ = :MaPQ', { MaPQ: data?.MaPQ.toUpperCase() });
-    }
-
-    if (data?.TRANGTHAILIENHE) {
-      query.andWhere('pd.TRANGTHAILIENHE = :TRANGTHAILIENHE', {
-        TRANGTHAILIENHE: data.TRANGTHAILIENHE,
+      query.andWhere('phanquyen.MaPQ = :MaPQ', {
+        MaPQ: data?.MaPQ.toUpperCase(),
       });
     }
 
-    // DALIENHE + LAN là 2 điều kiện lọc trong bảng lien_he
-    if (data?.DALIENHE == 0) {
-      query.andWhere('lienhe.SDT_KH IS NULL');
-    } else if (data?.DALIENHE == 1) {
+    if (data.DALIENHE == 1) {
+      query.leftJoinAndSelect('chitietpq.lienhe', 'lienhe');
+      query.andWhere('lienhe.LAN = :LAN', {
+        LAN: data.TRANGTHAILIENHE,
+      });
       query.andWhere('lienhe.SDT_KH IS NOT NULL');
-      query.andWhere('lienhe.LAN = :LAN', { LAN: data.TRANGTHAILIENHE });
+    } else if (data.DALIENHE == 0) {
+      const arrayLan = await this.lienheRepository.find({
+        where: {
+          LAN: data.TRANGTHAILIENHE,
+        },
+      });
+      const phoneArray = arrayLan.map((l) => l.SDT_KH);
+      if (phoneArray.length > 0) {
+        query.andWhere('chitietpq.SDT NOT IN (:...phoneArray)', { phoneArray });
+      }
+    } else {
+      query.leftJoinAndSelect('chitietpq.lienhe', 'lienhe');
     }
 
     // theo theo thông tin khách hàng
@@ -1163,5 +1170,42 @@ export class DataService {
     query.orderBy('chitietpq.SDT', 'ASC');
 
     return await query.getMany();
+  }
+
+  async DSSVbyUM(data: any) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      let sqlpq = `SELECT * FROM phanquyen a 
+      left join chitietpq b on b.MaPQ = a.MaPQ  
+      left join lienhe c on c.SDT_KH = b.SDT 
+      where 1 = 1 `;
+      const params: any[] = [];
+      if (data.MaPQ) {
+        sqlpq += ` AND a.MaPQ = ?`;
+        params.push(data.MaPQ);
+      }
+      if (data.SDT) {
+        sqlpq += ` AND a.SDT = ?`;
+        params.push(data.SDT);
+      }
+      const currentMaPQ = await queryRunner.query(sqlpq, params);
+
+      // if (data.LAN) {
+      //   const dataSVLAN = await queryRunner.query(
+      //     `SELECT * FROM lienhe WHERE LAN = ?`,
+      //     [data.LAN],
+      //   );
+      // }
+
+      await queryRunner.commitTransaction();
+      return currentMaPQ;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new Error(`Transaction failed: ${error.message}`);
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

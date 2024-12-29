@@ -471,17 +471,21 @@ export class CustomerService {
     await queryRunner.startTransaction();
 
     try {
-      // Thời gian hiện tại
-      const time = moment().format('YYYY[-]MM[-]MO');
+      const currentMaPQ = await queryRunner.query(
+        `SELECT * FROM phanquyen WHERE MaPQ = ?`,
+        [data.MaPQ],
+      );
 
-      // Tìm kiếm liên hệ
+      // Kiểm tra nếu không phải là lần đang được mở liên hệ thì không cho cập nhật
+      if (currentMaPQ[0]?.TRANGTHAILIENHE != data.LAN) {
+        throw new Error('Không thể cập nhật vì lần mở liên hệ không hợp lệ.');
+      }
+
       const filterContact = await queryRunner.query(
         `SELECT * FROM lienhe WHERE SDT_KH = ? AND LAN = ? AND MaPQ = ?`,
         [data.SDT_KH, data.LAN, data.MaPQ],
       );
-
-      console.log(filterContact);
-
+      const time = moment().format('YYYY[-]MM[-]MO');
       if (filterContact.length === 0) {
         // Tạo liên hệ mới
         await queryRunner.query(

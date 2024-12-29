@@ -339,14 +339,14 @@ export class DataController {
     }
   }
 
-  @Get('/segment')
-  async getSegment(@Query() query, @Res() res: Response) {
+  @Get('/segment/danhsachsinhvienUM')
+  async getDSSVbyUM(@Query() query: {}, @Res() res: Response) {
     try {
-      const data = await this.dataService.getSegment({ ...query });
+      const data = await this.dataService.DSSVbyUM(query);
 
       return res.status(200).json({
         statusCode: 200,
-        message: 'Lấy đoạn thành công.',
+        message: 'Danh sách sinh viên của UM',
         data,
       });
     } catch (error) {
@@ -356,6 +356,24 @@ export class DataController {
       );
     }
   }
+
+  // @Get('/segment')
+  // async getSegment(@Query() query, @Res() res: Response) {
+  //   try {
+  //     const data = await this.dataService.getSegment({ ...query });
+
+  //     return res.status(200).json({
+  //       statusCode: 200,
+  //       message: 'Lấy đoạn thành công.',
+  //       data,
+  //     });
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       error?.message || 'Đã có lỗi xảy ra, vui lòng thử lại.',
+  //       500,
+  //     );
+  //   }
+  // }
 
   @Get('/status')
   async getStatus(@Res() res: Response) {
