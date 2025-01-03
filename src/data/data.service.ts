@@ -1116,21 +1116,32 @@ export class DataService {
         MATRUONG: data.MATRUONG,
       });
     }
+
     if (data.SDT) {
       query.andWhere('phanquyen.SDT = :SDT', { SDT: data.SDT });
     }
 
-    if (data?.MaPQ) {
+    if (data.MaPQ) {
       query.andWhere('phanquyen.MaPQ = :MaPQ', {
         MaPQ: data?.MaPQ.toUpperCase(),
       });
     }
 
+    // if (data.TRANGTHAILIENHE) {
+    //   query.andWhere('phanquyen.TRANGTHAILIENHE = :TRANGTHAILIENHE', {
+    //     TRANGTHAILIENHE: data?.TRANGTHAILIENHE,
+    //   });
+    // }
+
     if (data.DALIENHE == 1) {
       query.leftJoinAndSelect('chitietpq.lienhe', 'lienhe');
-      query.andWhere('lienhe.LAN = :LAN', {
-        LAN: data.TRANGTHAILIENHE,
-      });
+      query.leftJoinAndSelect('lienhe.trangthai', 'trangthai');
+
+      if (data.TRANGTHAILIENHE) {
+        query.andWhere('lienhe.LAN = :LAN', {
+          LAN: data.TRANGTHAILIENHE,
+        });
+      }
       query.andWhere('lienhe.SDT_KH IS NOT NULL');
     } else if (data.DALIENHE == 0) {
       const arrayLan = await this.lienheRepository.find({
@@ -1143,7 +1154,9 @@ export class DataService {
         query.andWhere('chitietpq.SDT NOT IN (:...phoneArray)', { phoneArray });
       }
     } else {
+      // tất cả
       query.leftJoinAndSelect('chitietpq.lienhe', 'lienhe');
+      query.leftJoinAndSelect('lienhe.trangthai', 'trangthai');
     }
 
     // theo theo thông tin khách hàng
@@ -1172,40 +1185,28 @@ export class DataService {
     return await query.getMany();
   }
 
-  async DSSVbyUM(data: any) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      let sqlpq = `SELECT * FROM phanquyen a 
-      left join chitietpq b on b.MaPQ = a.MaPQ  
-      left join lienhe c on c.SDT_KH = b.SDT 
-      where 1 = 1 `;
-      const params: any[] = [];
-      if (data.MaPQ) {
-        sqlpq += ` AND a.MaPQ = ?`;
-        params.push(data.MaPQ);
-      }
-      if (data.SDT) {
-        sqlpq += ` AND a.SDT = ?`;
-        params.push(data.SDT);
-      }
-      const currentMaPQ = await queryRunner.query(sqlpq, params);
-
-      // if (data.LAN) {
-      //   const dataSVLAN = await queryRunner.query(
-      //     `SELECT * FROM lienhe WHERE LAN = ?`,
-      //     [data.LAN],
-      //   );
-      // }
-
-      await queryRunner.commitTransaction();
-      return currentMaPQ;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw new Error(`Transaction failed: ${error.message}`);
-    } finally {
-      await queryRunner.release();
+  async getDataLienHe(data: any) {
+    let where = ' where 1 = 1';
+    let params = [];
+    if (data.LAN) {
+      where += ' AND LAN = ?';
+      params.push(data.LAN);
     }
+    if (data.SDT_KH) {
+      where += ' AND SDT_KH = ?';
+      params.push(data.SDT_KH);
+    }
+    if (data.SDT) {
+      where += ' AND SDT = ?';
+      params.push(data.SDT);
+    }
+    if (data.MaPQ) {
+      where += ' AND MaPQ = ?';
+      params.push(data.MaPQ);
+    }
+    return await this.lienheRepository.query(
+      'SELECT * FROM lienhe' + where,
+      params,
+    );
   }
 }
