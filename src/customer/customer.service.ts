@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { lienhe } from 'src/entites/lienhe.entity';
 import { nganh } from 'src/entites/nganh.entity';
@@ -299,7 +299,6 @@ export class CustomerService {
   }
 
   async editInfoCustomer(data: InforCustomerDto) {
-    console.log(data);
     let customerResult: UpdateResult;
     let dataResult: UpdateResult;
     if (Object.keys(data.customer).length > 0) {
@@ -485,7 +484,7 @@ export class CustomerService {
         `SELECT * FROM lienhe WHERE SDT_KH = ? AND LAN = ? AND MaPQ = ?`,
         [data.SDT_KH, data.LAN, data.MaPQ],
       );
-      const time = moment().format('YYYY[-]MM[-]MO');
+      const time = new Date();
       if (filterContact.length === 0) {
         // Tạo liên hệ mới
         await queryRunner.query(
@@ -611,5 +610,68 @@ export class CustomerService {
     });
 
     return kh;
+  }
+
+  async public_getNganhYeuThichByMaNganh(maNganh: string, SDT: string) {
+    const whereCondition: any = {};
+    if (maNganh) {
+      whereCondition.MANGANH = maNganh;
+    }
+    if (SDT) {
+      whereCondition.SDT = SDT;
+    }
+    return await this.nganhyeuthichRepository.find({
+      where: whereCondition,
+    });
+  }
+
+  async public_getNganhByMaNganh(maNganh: string) {
+    return await this.nganhRepository.findOne({
+      where: { MANGANH: maNganh },
+    });
+  }
+  async editNganhYeuThich(data: any) {
+    let SDT = data?.customer?.SDT;
+    let newMaNganhArray = data?.nganhyeuthich;
+    if (!SDT) {
+      throw new HttpException('Thiếu SDT người dùng không thể cập nhật', 400);
+    }
+    if (newMaNganhArray.length == 0) {
+      throw new HttpException(
+        'Thiếu ngành yêu thích người dùng không thể cập nhật',
+        400,
+      );
+    }
+
+    // lấy tất cả mã ngành yêu thích của KH
+    let currentMaNganhArrayRaw = await this.public_getNganhYeuThichByMaNganh(
+      '',
+      SDT,
+    );
+    let currentMaNganhArray = currentMaNganhArrayRaw.map((item) => {
+      return item.MANGANH || [];
+    });
+
+    // Thêm mã ngành mới nếu không có trong mảng cũ
+    for (const maNganh of newMaNganhArray) {
+      if (!currentMaNganhArray.includes(maNganh)) {
+        // Mã ngành mới chưa có trong DB, thêm vào
+        await this.nganhyeuthichRepository.query(
+          'INSERT INTO nganhyeuthich(SDT, MANGANH) VALUES (?, ?)',
+          [SDT, maNganh],
+        );
+      }
+    }
+
+    // Xóa mã ngành không còn trong mảng mới
+    for (const maNganh of currentMaNganhArray) {
+      if (!newMaNganhArray.includes(maNganh)) {
+        // Mã ngành cũ không có trong mảng mới, xóa đi
+        await this.nganhyeuthichRepository.query(
+          'DELETE FROM nganhyeuthich WHERE SDT = ? AND MANGANH = ?',
+          [SDT, maNganh],
+        );
+      }
+    }
   }
 }

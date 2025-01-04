@@ -252,4 +252,22 @@ export class CustomerController {
       });
     }
   }
+
+  // Sửa thông tin khách hàng
+  @Post('/editNganhYeuThich')
+  async editNganhYeuThich(@Body() body: any, @Res() res: Response) {
+    try {
+      const data = await this.customerService.editNganhYeuThich(body);
+      return res.status(200).json({
+        statusCode: 200,
+        message: 'Đã lưu ngành yêu thích thành công.',
+        data: data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        statusCode: 200,
+        message: error?.message || 'Lỗi server.',
+      });
+    }
+  }
 }
