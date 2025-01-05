@@ -54,7 +54,7 @@ export class CustomerController {
   @Get()
   async getInfoCustomers(@Req() req: Request, @Res() res: Response) {
     try {
-      const data = await this.customerService.getInfoCustomers();
+      const data = await this.customerService.getInfoCustomers(); 
 
       return res.status(200).json({
         statusCode: 200,

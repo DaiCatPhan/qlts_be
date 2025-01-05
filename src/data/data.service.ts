@@ -116,6 +116,14 @@ export class DataService {
     return await this.provinceRepository.find();
   }
 
+  async getAllPhanQuyen(data?: any) {
+    const where: any = {};
+    if (data.SDT) {
+      where.SDT = data.SDT;
+    }
+    return await this.segmentRepository.find({ where });
+  }
+
   async getSchools({ provinceCode }: { provinceCode?: string }) {
     const query = this.customerRepository.createQueryBuilder('kh');
     query
@@ -950,11 +958,8 @@ export class DataService {
       throw new HttpException('Trạng thái phải <= 7', 400);
     }
     // Edit contact
-    console.log(data);
 
     if (data?.ListMAPQ && data?.ListMAPQ.length > 0) {
-      console.log(1);
-
       // Cập nhật cho nhiều bản ghi nếu ListMAPQ có dữ liệu
       const segmentUpdateResult = await this.segmentRepository.update(
         { MaPQ: In(data.ListMAPQ) }, // Cập nhật nhiều bản ghi với MaPQ trong mảng ListMAPQ
@@ -1208,5 +1213,33 @@ export class DataService {
       'SELECT * FROM lienhe' + where,
       params,
     );
+  }
+
+  async getDataLienHeMissCall(data: any) {
+    console.log(data);
+
+    let sql = `select * from phanquyen a 
+              left join chitietpq b on a.MaPQ = b.MaPQ 
+              left join lienhe c on b.SDT = c.SDT_KH
+              left join trangthai d on c.MATRANGTHAI = d.MATRANGTHAI
+              left join khachhang e on b.SDT = e.SDT
+              `;
+    let where = ' where 1 = 1';
+    let params = [];
+    if (data.SDT) {
+      where += ' and a.SDT = ?';
+      params.push(data.SDT);
+    }
+    if (data.MATRANGTHAI) {
+      where += ' and c.MATRANGTHAI = ?';
+      params.push(data.MATRANGTHAI);
+    }
+
+    if (data.LAN) {
+      where += ' and c.LAN = ?';
+      params.push(data.LAN);
+    }
+
+    return await this.lienheRepository.query(sql + where, params);
   }
 }

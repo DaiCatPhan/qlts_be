@@ -29,6 +29,24 @@ import { taikhoan } from 'src/entites/taikhoan.entity';
 export class DataController {
   constructor(private dataService: DataService) {}
 
+  @Get('/phanquyen')
+  async getAllPhanQuyen(@Res() res: Response, @Query() query) {
+    try {
+      const data = await this.dataService.getAllPhanQuyen({ ...query });
+
+      return res.status(200).json({
+        statusCode: 200,
+        message: 'Lấy tỉnh thành công.',
+        data,
+      });
+    } catch (error) {
+      throw new HttpException(
+        error?.message || 'Đã có lỗi xảy ra, vui lòng thử lại.',
+        500,
+      );
+    }
+  }
+
   @Get('/province')
   async getAllProvince(@Res() res: Response) {
     try {
@@ -302,7 +320,6 @@ export class DataController {
           maadmin: user.MAADMIN,
           sdt: null,
         });
-        console.log(re);
       }
 
       return res.status(200).json({
@@ -568,6 +585,24 @@ export class DataController {
         statusCode: 200,
         message: 'Lấy data thành công.',
         data: result,
+      });
+    } catch (error) {
+      throw new HttpException(
+        error?.message || 'Đã có lỗi xảy ra, vui lòng thử lại.',
+        500,
+      );
+    }
+  }
+
+  @Get('/getLienHeMissCall')
+  async getLienHeMissCall(@Res() res: Response, @Query() query) {
+    try {
+      const data = await this.dataService.getDataLienHeMissCall({ ...query });
+
+      return res.status(200).json({
+        statusCode: 200,
+        message: 'Lấy cuộc gọi nhỡ thành công.',
+        data,
       });
     } catch (error) {
       throw new HttpException(
