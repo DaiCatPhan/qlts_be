@@ -13,12 +13,13 @@ import {
   Res,
   StreamableFile,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateFileDto, readFileDto } from './dto/create-file.dto';
 import { FileService } from './file.service';
 
@@ -138,9 +139,9 @@ export class FileController {
   }
 
   @Post('upload/dataFileCustomer')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('file', 5))
   async uploadDataFileCustomer(
-    @UploadedFile(
+    @UploadedFiles(
       new ParseFilePipeBuilder()
         // .addFileTypeValidator({
         //   fileType: 'pdf',
@@ -152,7 +153,7 @@ export class FileController {
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
     )
-    file: Express.Multer.File,
+    file: Express.Multer.File[],
     @Body() body: any,
     @Res() res: Response,
   ) {
@@ -160,7 +161,6 @@ export class FileController {
       const data = await this.fileService.upLoadFileByCustomer(file, body);
 
       return res.status(200).json({
-        fileName: file.originalname,
         data: data,
         statusCode: 200,
       });
@@ -172,8 +172,8 @@ export class FileController {
     }
   }
 
-  @Get('downLoadFile')
-  async downLoadFile(
+  @Get('downLoadFileV1')
+  async downLoadFileV1(
     @Query() query,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -209,6 +209,23 @@ export class FileController {
       file.pipe(res);
 
       return new StreamableFile(file);
+    } catch (error) {
+      console.error(error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Lỗi server.',
+      });
+    }
+  }
+
+  @Get('downLoadFile')
+  async downLoadFile(
+    @Query() query,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      // Tìm hồ sơ trong cơ sở dữ liệu
+      await this.fileService.downloadFilesByMaphieu(query, res);
     } catch (error) {
       console.error(error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
