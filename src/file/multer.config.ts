@@ -43,11 +43,6 @@ export class MulterConfigService implements MulterOptionsFactory {
           if (!file || !file.originalname) {
             return cb(new Error('File or file.originalname is undefined'), '');
           }
-          console.log('>>>>>>>>>>>>>>..', file);
-
-          // let extName = path.extname(file.originalname);
-          // let baseName = path.basename(file.originalname, extName);
-          // let finalName = `${baseName}-${Date.now()}${extName}`;
           cb(null, file.originalname);
         },
       }),

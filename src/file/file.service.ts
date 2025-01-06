@@ -933,32 +933,33 @@ export class FileService {
     }
   }
 
-  async upLoadFileByCustomer(file: Express.Multer.File, body: CreateFileDto) {
+  async upLoadFileByCustomer(file: Express.Multer.File[], body: CreateFileDto) {
     const { MAPHIEUDK } = body;
-    const { originalname, path } = file;
+
     try {
-      const fullPath = file.path;
-      const baseDir = 'store';
-      let relativePath = '';
+      const fileNames = file.map((i) => i.filename);
 
-      const storeIndex = fullPath.indexOf(baseDir);
-      if (storeIndex !== -1) {
-        relativePath = fullPath.substring(storeIndex);
-        console.log(relativePath);
+      const existingRecord = await this.hosoRepository.findOne({
+        where: { MAPHIEUDK },
+      });
+
+      if (existingRecord) {
+        await this.hosoRepository.update(
+          { MAPHIEUDK },
+          { HOSO: JSON.stringify(fileNames) },
+        );
+        return { MAPHIEUDK, HOSO: fileNames };
       } else {
-        console.log("Không tìm thấy thư mục 'store' trong đường dẫn.");
+        const data = this.hosoRepository.create({
+          MAPHIEUDK: MAPHIEUDK,
+          HOSO: JSON.stringify(fileNames),
+        });
+
+        await this.hosoRepository.save(data, {
+          reload: true,
+        });
+        return { MAPHIEUDK, HOSO: fileNames };
       }
-
-      const data = this.hosoRepository.create({
-        MAPHIEUDK: MAPHIEUDK,
-        HOSO: relativePath,
-      });
-
-      await this.hosoRepository.save(data, {
-        reload: true,
-      });
-
-      return data;
     } catch (err) {
       console.log(err);
       throw new HttpException(err?.code || 'Loi server', 400);
@@ -1119,5 +1120,57 @@ export class FileService {
       paginatedResult = result.slice((page - 1) * pageSize, page * pageSize);
     }
     return { totalRows: total, results: paginatedResult };
+  }
+
+  async downloadFilesByMaphieu(query: any, res: Response) {
+    try {
+      const { SDT, MAPHIEUDK } = query;
+
+      const record = await this.hosoRepository.findOne({
+        where: { MAPHIEUDK },
+      });
+
+      if (!record) {
+        throw new Error(`Không tìm thấy hồ sơ với MAPHIEUDK: ${MAPHIEUDK}`);
+      }
+
+      // Lấy danh sách file từ cột HOSO
+      const fileNames: string[] = JSON.parse(record.HOSO);
+
+      if (!fileNames || fileNames.length === 0) {
+        throw new Error(
+          `Không có file nào được lưu cho MAPHIEUDK: ${MAPHIEUDK}`,
+        );
+      }
+
+      // Đường dẫn thư mục lưu file
+      const folderPath =
+        'D:\\THỰC TẬP 2024\\Code\\HeThongQuanLyTuyenSinh\\nest_qlts_cusc\\store\\hosoPhieudkxettuyen\\' +
+        SDT +
+        '\\';
+
+      // Nếu có nhiều file: Tạo tệp nén (ZIP)
+      const archiver = require('archiver');
+      const archive = archiver('zip', { zlib: { level: 9 } });
+
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${MAPHIEUDK}_files.zip"`,
+      );
+
+      archive.pipe(res);
+
+      // Thêm từng file vào ZIP
+      for (const fileName of fileNames) {
+        let filePath = folderPath + fileName;
+        archive.file(filePath, { name: fileName });
+      }
+
+      await archive.finalize();
+    } catch (err) {
+      console.log(err);
+      throw new HttpException(err.message || 'Lỗi server', 500);
+    }
   }
 }
